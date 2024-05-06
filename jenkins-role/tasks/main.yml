@@ -1,0 +1,71 @@
+---
+- name: Install OpenJDK 11
+  apt:
+    name: openjdk-11-jdk
+    update_cache: yes
+
+- name: Add Jenkins repository key
+  apt_key:
+    url: https://pkg.jenkins.io/debian/jenkins.io-2023.key
+
+- name: Add Jenkins repository
+  apt_repository:
+    repo: deb https://pkg.jenkins.io/debian-stable binary/
+    state: present
+
+- name: Install Jenkins
+  apt:
+    name: jenkins
+    state: present
+
+- name: Copy Nginx configuration from local to remote
+  copy:
+    src: jenkins-role/templates/nginx.conf  
+    dest: /etc/nginx/nginx.conf
+  notify: Restart Nginx
+
+- name: Install Nginx
+  apt:
+    name: nginx
+    state: present
+
+- name: Start Nginx service
+  service:
+    name: nginx
+    state: restarted
+
+- name: Create SSL directory if it doesn't exist
+  become: true
+  file:
+    path: /etc/ssl/private
+    state: directory
+    mode: '0700'
+    owner: root
+    group: root
+
+- name: Generate private key
+  openssl_privatekey:
+    path: /etc/ssl/private/nginx.key
+    size: 2048
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Generate CSR
+  openssl_csr:
+    path: /etc/ssl/certs/nginx.csr
+    privatekey_path: /etc/ssl/private/nginx.key
+
+- name: Generate self-signed certificate
+  openssl_certificate:
+    path: /etc/ssl/certs/nginx.crt
+    privatekey_path: /etc/ssl/private/nginx.key
+    csr_path: /etc/ssl/certs/nginx.csr
+    provider: selfsigned
+
+- name: Deploy Nginx configuration file
+  template:
+    src: jenkins.conf.j2  
+    dest: /etc/nginx/sites-available/jenkins.conf
+  notify: Reload Nginx
+

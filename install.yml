@@ -1,0 +1,7 @@
+---
+- name: Install Jenkins and Nexus
+  hosts: all
+  remote_user: ubuntu
+  become: yes
+  roles:
+    - jenkins-role
